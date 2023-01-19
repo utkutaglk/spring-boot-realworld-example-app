@@ -18,30 +18,37 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @SuppressWarnings("SpringJavaAutowiringInspection")
 public class JwtTokenFilter extends OncePerRequestFilter {
   @Autowired private UserRepository userRepository;
+
   @Autowired private JwtService jwtService;
-  private final String header = "Authorization";
+
+  private String header = "Authorization";
 
   @Override
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
     getTokenString(request.getHeader(header))
-        .flatMap(token -> jwtService.getSubFromToken(token))
         .ifPresent(
-            id -> {
-              if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                userRepository
-                    .findById(id)
-                    .ifPresent(
-                        user -> {
-                          UsernamePasswordAuthenticationToken authenticationToken =
-                              new UsernamePasswordAuthenticationToken(
-                                  user, null, Collections.emptyList());
-                          authenticationToken.setDetails(
-                              new WebAuthenticationDetailsSource().buildDetails(request));
-                          SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                        });
-              }
+            token -> {
+              jwtService
+                  .getSubFromToken(token)
+                  .ifPresent(
+                      id -> {
+                        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                          userRepository
+                              .findById(id)
+                              .ifPresent(
+                                  user -> {
+                                    UsernamePasswordAuthenticationToken authenticationToken =
+                                        new UsernamePasswordAuthenticationToken(
+                                            user, null, Collections.emptyList());
+                                    authenticationToken.setDetails(
+                                        new WebAuthenticationDetailsSource().buildDetails(request));
+                                    SecurityContextHolder.getContext()
+                                        .setAuthentication(authenticationToken);
+                                  });
+                        }
+                      });
             });
 
     filterChain.doFilter(request, response);
